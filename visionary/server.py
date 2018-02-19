@@ -9,14 +9,14 @@ from visionary.webclient import WebClient
 from visionary.util import find_link_br, hash_link
 from visionary.config import EMOJI
 
-WORKER_TASKS = 2
-
 
 class VisionServer(object):
     _server_task_pool = []
     _aux_tasks = []
 
-    def __init__(self, token: str, chat_name: str, binary_path: str, driver_path: str, image_path: str):
+    def __init__(self, workers: int, token: str, chat_name: str, binary_path: str, driver_path: str, image_path: str):
+        self._workers = workers
+
         self._log = Logger('VServer')
         self._aioloop = asyncio.get_event_loop()
         self._vkapi = VKAPIHandle(self._aioloop, token, chatname=chat_name)
@@ -73,7 +73,7 @@ class VisionServer(object):
         self._aioloop.run_until_complete(self._vkapi.register())    # API init subroutine
 
         try:
-            self._server_task_pool = [asyncio.ensure_future(self._process()) for _ in range(WORKER_TASKS)]
+            self._server_task_pool = [asyncio.ensure_future(self._process()) for _ in range(self._workers)]
             self._aioloop.run_until_complete(asyncio.gather(*self._server_task_pool))
 
         except KeyboardInterrupt:

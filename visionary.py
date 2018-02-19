@@ -5,6 +5,7 @@ Usage:
                        [-c <chrome_path>]
                        [-w <driver_path>]
                        [-n <chat_name>]
+                       [-t <worker_tasks>]
                        [--cache-size <cache_size>]
                        <token>
 
@@ -18,6 +19,7 @@ Options:
     -c --chrome-path <chrome_path>      Path to Chrome binary [default: /usr/bin/google-chrome]
     -w --webdriver-path <driver_path>   Path to Chrome Selenium webdriver [default: /usr/bin/chromedriver-dev]
     -n --chat-name <chat_name>          Chat name to listen to [default: TEST_DLG]
+    -t --tasks <worker_tasks>           Concurrent worker tasks to run [default: 5]
     --cache-size <cache_size>           Cache size [default: 5000]
 
 """
@@ -45,6 +47,7 @@ if __name__ == '__main__':
             chat_name=args['--chat-name'],
             binary_path=args['--chrome-path'],
             driver_path=args['--webdriver-path'],
-            image_path=args['--image-dir']
+            image_path=args['--image-dir'],
+            workers=int(args['--tasks'])
         )
         serv.start()
