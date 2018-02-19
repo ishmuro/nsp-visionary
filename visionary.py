@@ -30,7 +30,7 @@ from pprint import pprint as pp
 from logbook import StreamHandler
 
 if __name__ == '__main__':
-    args = docopt(__doc__, version='0.7')
+    args = docopt(__doc__, version='0.8')
     pp(args)
 
     if args['start']:
