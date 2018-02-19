@@ -9,10 +9,12 @@ from visionary.webclient import WebClient
 from visionary.util import find_link_br, hash_link
 from visionary.config import EMOJI
 
+WORKER_TASKS = 2
+
 
 class VisionServer(object):
-    _server_task = None
-    _tasks = []
+    _server_task_pool = []
+    _aux_tasks = []
 
     def __init__(self, token: str, chat_name: str, binary_path: str, driver_path: str, image_path: str):
         self._log = Logger('VServer')
@@ -27,7 +29,7 @@ class VisionServer(object):
     def _queue_task(self, func, *args, **kwargs):
         self._log.debug(f"Queuing function {func.__name__}{args} to execute.")
         task = asyncio.ensure_future(func(*args, **kwargs))
-        self._tasks.append(task)
+        self._aux_tasks.append(task)
         return task
 
     async def _process(self):
@@ -68,29 +70,35 @@ class VisionServer(object):
             return
 
     def start(self):
+        self._aioloop.run_until_complete(self._vkapi.register())    # API init subroutine
+
         try:
-            self._server_task = asyncio.ensure_future(self._process())
-            self._aioloop.run_until_complete(self._server_task)
+            self._server_task_pool = [asyncio.ensure_future(self._process()) for _ in range(WORKER_TASKS)]
+            self._aioloop.run_until_complete(asyncio.gather(*self._server_task_pool))
+
         except KeyboardInterrupt:
             pass
         finally:
             self._log.info('Shutting down')
 
-            if self._server_task is not None:
-                self._server_task.cancel()
-                self._aioloop.run_until_complete(self._server_task)
+            # Send cancel exception to all server tasks
+            for task in self._server_task_pool:
+                task.cancel()
 
-            pending_tasks = [task for task in self._tasks if not task.done()]
+            # Collect pending coroutines and wait for them to finish
+            pending_tasks = [task for task in self._aux_tasks if not task.done()]
 
             if len(pending_tasks) > 0:
                 self._log.info(f"Waiting for {len(pending_tasks)} pending tasks to finish")
                 self._aioloop.run_until_complete(asyncio.gather(*pending_tasks))
                 self._log.info('Pending tasks finished')
 
-            self._log.info('Stopping auxiliary services')
+            # Wait for server tasks to wrap up
+            self._aioloop.run_until_complete(asyncio.gather(*self._server_task_pool))
 
+            self._log.info('Stopping auxiliary services')
             self._vkapi.stop()
             self._web.stop()
             self._aioloop.close()
 
-            self._log.warn('Server shutdown')
+            self._log.warn('Server has been shut down')

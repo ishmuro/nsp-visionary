@@ -12,6 +12,7 @@ from visionary.config import RAND_MAX, VKAPI_CHAT_OFFSET
 class VKAPIHandle(object):
     _bound_peer_id = None
     _upload_uri = None
+    _longpoll_cursor = 0
 
     def __init__(self, loop: AbstractEventLoop, token: str, chatname: str):
         self._aiohttp_client = aiohttp.ClientSession(loop=loop)
@@ -21,6 +22,15 @@ class VKAPIHandle(object):
         self._bound_chatname = chatname
         self._longpoll = aiovk.LongPoll(self._api, mode=2)
         random.seed()
+
+    async def register(self):
+        is_chat_found = await self._get_chat_id()
+
+        if not is_chat_found:
+            raise ValueError('Invalid or non-existent chat name')
+
+        await self._get_photo_upload_uri()
+        # await self.send_msg(text="\U0001F535 Listening to this chat")
 
     async def _get_chat_id(self) -> bool:
         """
@@ -127,17 +137,12 @@ class VKAPIHandle(object):
         Yields:
             New message text
         """
-        if not self._bound_peer_id:
-            is_chat_found = await self._get_chat_id()
-            if not is_chat_found:
-                raise ValueError('Invalid or non-existent chat name')
-            else:
-                # await self.send_msg(text="\U0001F535 Listening to this chat")
-                pass
-
         while True:
             await asyncio.sleep(0)
             new_data = await self._longpoll.wait()
+            if new_data['ts'] <= self._longpoll_cursor:
+                continue
+            self._longpoll_cursor = new_data['ts']
             updates = new_data['updates']
 
             # Trivial case — no updates received
