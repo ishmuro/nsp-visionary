@@ -1,6 +1,7 @@
 import asyncio
 import functools
 from logbook import Logger
+from typing import Coroutine
 
 from aiovk.exceptions import VkCaptchaNeeded
 
@@ -22,17 +23,38 @@ class VisionServer(object):
         self._vkapi = VKAPIHandle(self._aioloop, token, chatname=chat_name)
         self._web = WebClient(binary_path=binary_path, driver_path=driver_path, image_path=image_path)
 
-    async def _execute_blocking(self, func, *args, **kwargs):
-        self._log.debug(f"Running function {func.__name__}{args} in executor.")
-        return await self._aioloop.run_in_executor(executor=None, func=functools.partial(func, *args, **kwargs))
+    async def _execute_blocking(self, func, *args, **kwargs) -> Coroutine:
+        """
+        Execute blocking function in separate thread
+        Args:
+            func: function object to be called
+            *args: positional arguments
+            **kwargs: keyword arguments
 
-    def _queue_task(self, func, *args, **kwargs):
-        self._log.debug(f"Queuing function {func.__name__}{args} to execute.")
+        Returns:
+            Asyncio task corresponding to the created coroutine
+        """
+        self._log.debug(f"Scheduling function {func.__name__}{args} call to separate thread")
+        return self._aioloop.run_in_executor(executor=None, func=functools.partial(func, *args, **kwargs))
+
+    def _queue_task(self, func, *args, **kwargs) -> Coroutine:
+        """
+        Queue async task to be executed in the loop
+        Args:
+            func: function to be called
+            *args: positional arguments
+            **kwargs: keyword arguments
+
+        Returns:
+            asyncio task corresponding to the created coroutine
+        """
+        self._log.debug(f"Scheduling function {func.__name__}{args} to loop queue")
         task = asyncio.ensure_future(func(*args, **kwargs))
         self._aux_tasks.append(task)
         return task
 
     async def _process(self):
+        """Main server coroutine"""
         try:
             async for message in self._vkapi.wait_for_messages():
                 link = find_link_br(message)
@@ -52,7 +74,7 @@ class VisionServer(object):
                     message_id = await message_task
                 except VkCaptchaNeeded:
                     self._log.error('Captcha kicked in, unable to proceed')
-                    raise asyncio.CancelledError
+                    raise RuntimeError('Captcha')
 
                 if link != resolved_link:
                     self._queue_task(
@@ -77,10 +99,10 @@ class VisionServer(object):
             self._aioloop.run_until_complete(asyncio.gather(*self._server_task_pool))
 
         except KeyboardInterrupt:
-            pass
+            self._log.warn('Being shut down by keyboard interrupt or SIGINT')
+        except RuntimeError:
+            self._log.warn('Being shut down by server error')
         finally:
-            self._log.info('Shutting down')
-
             # Send cancel exception to all server tasks
             for task in self._server_task_pool:
                 task.cancel()
@@ -101,4 +123,4 @@ class VisionServer(object):
             self._web.stop()
             self._aioloop.close()
 
-            self._log.warn('Server has been shut down')
+            self._log.warn('Server has been shut down!')
