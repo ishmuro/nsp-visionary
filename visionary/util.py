@@ -15,6 +15,7 @@ def hash_link(uri: str) -> Optional[str]:
     """
     if uri is None:
         return None
+    uri = re.sub('\W+', '', uri)
     return str(uuid.uuid3(uuid.NAMESPACE_URL, uri.lower()))
 
 

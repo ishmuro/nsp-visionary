@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Visionary server for generating inline previews
 Usage:
     visionary.py start [-i <image_dir>]
