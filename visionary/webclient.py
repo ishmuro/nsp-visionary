@@ -40,11 +40,11 @@ class WebClient(object):
         Returns:
             Resolved URI hash, which is used to name screenshot files
         """
-        final_url = self.resolve(url)
-        final_url_hash = hash_link(final_url)
+        url_hash = hash_link(url)
+        path = f"{self.image_path}{url_hash}.png"
 
-        self._wd.save_screenshot(f"{self.image_path}{final_url_hash}")
-        return final_url_hash
+        self._wd.save_screenshot(path)
+        return path or None
 
     def resolve(self, url: str) -> str:
         """
@@ -55,6 +55,7 @@ class WebClient(object):
         Returns:
             Final destination URI
         """
+        self._log.debug(f"Resolving {url}...")
         self._wd.get(url)
         return self._wd.current_url
 

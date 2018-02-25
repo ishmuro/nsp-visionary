@@ -18,6 +18,9 @@ class VisionServer(object):
     def __init__(self, workers: int, token: str, chat_name: str, binary_path: str, driver_path: str, image_path: str):
         self._workers = workers
 
+        if image_path[:-1] != '/':
+            image_path += '/'
+
         self._log = Logger('VServer')
         self._aioloop = asyncio.get_event_loop()
         self._vkapi = VKAPIHandle(self._aioloop, token, chatname=chat_name)
@@ -35,7 +38,7 @@ class VisionServer(object):
             Asyncio task corresponding to the created coroutine
         """
         self._log.debug(f"Scheduling function {func.__name__}{args} call to separate thread")
-        return self._aioloop.run_in_executor(executor=None, func=functools.partial(func, *args, **kwargs))
+        return await self._aioloop.run_in_executor(executor=None, func=functools.partial(func, *args, **kwargs))
 
     def _queue_task(self, func, *args, **kwargs) -> Coroutine:
         """
@@ -77,15 +80,27 @@ class VisionServer(object):
                     raise RuntimeError('Captcha')
 
                 if link != resolved_link:
+                    message_text = f"{EMOJI['processed']} {link} -> {resolved_link}"
                     self._queue_task(
                         self._vkapi.edit_msg,
                         msg_id=message_id,
-                        text=f"{EMOJI['processed']} {link} -> {resolved_link} ({resolved_hash})")
+                        text=message_text)
                 else:
+                    message_text = f"{EMOJI['processed']} {link}"
                     self._queue_task(
                         self._vkapi.edit_msg,
                         msg_id=message_id,
-                        text=f"{EMOJI['processed']} {link}")
+                        text=message_text)
+
+                screen_path = await self._execute_blocking(self._web.snap, resolved_link)
+                if screen_path:
+                    photo_id = await self._vkapi.upload_photo(screen_path)
+                    self._queue_task(
+                        self._vkapi.edit_msg,
+                        msg_id=message_id,
+                        text=message_text,
+                        attachment=photo_id
+                    )
 
         except asyncio.CancelledError:
             self._log.info('Longpoll task cancelled')

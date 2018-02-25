@@ -1,12 +1,11 @@
 #!/usr/bin/env python
 """Visionary server for generating inline previews
 Usage:
-    visionary.py start [-i <image_path>]
-                       [-c <chrome_path>]
-                       [-w <driver_path>]
-                       [-n <chat_name>]
-                       [-t <worker_tasks>]
-                       [--cache-size <cache_size>]
+    visionary.py start [-i <image_dir>]
+                       [-b <binary_path>]
+                       [-d <driver_path>]
+                       [-c <chat_name>]
+                       [-w <worker_tasks>]
                        <token>
 
 Arguments:
@@ -15,15 +14,15 @@ Arguments:
 Options:
     -h --help                           Show this screen
     --version                           Show version
-    -i --image-dir <image_path>         Directory to store images to [default: ./img]
-    -c --chrome-path <chrome_path>      Path to Chrome binary [default: /usr/bin/google-chrome]
-    -w --webdriver-path <driver_path>   Path to Chrome Selenium webdriver [default: /usr/bin/chromedriver-dev]
-    -n --chat-name <chat_name>          Chat name to listen to [default: TEST_DLG]
-    -t --tasks <worker_tasks>           Concurrent worker tasks to run [default: 5]
-    --cache-size <cache_size>           Cache size [default: 5000]
+    -i --image-dir <image_dir>          Directory to store images to [default: img]
+    -b --binary-path <binary_path>      Path to the Chrome binary [default: /usr/bin/google-chrome]
+    -d --driver-path <driver_path>      Path to Chrome Selenium webdriver [default: /usr/bin/chromedriver-dev]
+    -c --chat-name <chat_name>          Chat name to listen to [default: TEST_DLG]
+    -w --workers <worker_tasks>         Concurrent worker tasks to run [default: 5]
 
 """
 import sys
+import os
 
 from docopt import docopt
 from pprint import pprint as pp
@@ -37,6 +36,9 @@ if __name__ == '__main__':
         import asyncio
         from visionary.server import VisionServer
 
+        if not os.path.exists(args['--image-dir']):
+            os.makedirs(args['--image-dir'])
+
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
@@ -45,9 +47,9 @@ if __name__ == '__main__':
         serv = VisionServer(
             token=args['<token>'],
             chat_name=args['--chat-name'],
-            binary_path=args['--chrome-path'],
-            driver_path=args['--webdriver-path'],
+            binary_path=args['--binary-path'],
+            driver_path=args['--driver-path'],
             image_path=args['--image-dir'],
-            workers=int(args['--tasks'])
+            workers=int(args['--workers'])
         )
         serv.start()

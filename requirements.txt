@@ -1,6 +1,5 @@
-aiohttp
+aiohttp==2.3.10
 aiovk
-blessed
 docopt
 halo
 selenium
