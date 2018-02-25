@@ -88,7 +88,7 @@ class VisionServer(object):
                     )
                     continue
 
-                if link.lower() != resolved_link.lower():
+                if hash_link(link) != resolved_hash:
                     message_text = f"{EMOJI['processed']} {link} -> {resolved_link}"
                     self._queue_task(
                         self._vkapi.edit_msg,
