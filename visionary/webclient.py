@@ -1,7 +1,8 @@
-
 from selenium import webdriver
 import selenium.webdriver.chrome.service as service
 from selenium.webdriver.chrome.options import Options
+from selenium.common.exceptions import WebDriverException
+from typing import Optional
 from logbook import Logger
 from visionary.util import hash_link
 
@@ -30,34 +31,47 @@ class WebClient(object):
             self._wd_service.service_url,
             desired_capabilities=self._wd_options.to_capabilities()
         )
+        self._wd.set_page_load_timeout(10)
+        self._wd.set_script_timeout(10)
 
-    def snap(self, url: str) -> str:
+    def snap(self, url: str) -> Optional[str]:
         """
         Captures page snapshot and saves it
         Args:
             url: URI to get screenshot from
 
         Returns:
-            Resolved URI hash, which is used to name screenshot files
+            Resolved URI hash, which is used to name screenshot files (or None if resolve failed)
         """
         url_hash = hash_link(url)
         path = f"{self.image_path}{url_hash}.png"
 
+        if self._wd.current_url != url:
+            link = self.resolve(url)
+            if link is None:
+                return None
+
         self._wd.save_screenshot(path)
         return path or None
 
-    def resolve(self, url: str) -> str:
+    def resolve(self, url: str) -> Optional[str]:
         """
         Resolves the url, giving its final destination
         Args:
             url: URI to resolve
 
         Returns:
-            Final destination URI
+            Final destination URI or None if failed
         """
         self._log.debug(f"Resolving {url}...")
-        self._wd.get(url)
-        return self._wd.current_url
+        try:
+            self._wd.get(url)
+        except WebDriverException as e:
+            self._log.error(f"Error resolving {url}: {e}")
+        else:
+            return self._wd.current_url
+
+        return None
 
     def stop(self):
         self._wd.stop_client()

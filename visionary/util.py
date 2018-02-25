@@ -4,7 +4,7 @@ import re
 from typing import Optional
 
 
-def hash_link(uri: str) -> str:
+def hash_link(uri: str) -> Optional[str]:
     """
     Creates a UUID3 hash of a link
     Args:
@@ -13,7 +13,9 @@ def hash_link(uri: str) -> str:
     Returns:
         UUID3 hash of this link
     """
-    return str(uuid.uuid3(uuid.NAMESPACE_URL, uri))
+    if uri is None:
+        return None
+    return str(uuid.uuid3(uuid.NAMESPACE_URL, uri.lower()))
 
 
 def find_link_br(text: str) -> Optional[str]:

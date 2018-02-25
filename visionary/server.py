@@ -79,7 +79,16 @@ class VisionServer(object):
                     self._log.error('Captcha kicked in, unable to proceed')
                     raise RuntimeError('Captcha')
 
-                if link != resolved_link:
+                if resolved_link is None:
+                    self._log.warn('Skipping link')
+                    self._queue_task(
+                        self._vkapi.edit_msg,
+                        msg_id=message_id,
+                        text=f"{EMOJI['timeout']} {link}"
+                    )
+                    continue
+
+                if link.lower() != resolved_link.lower():
                     message_text = f"{EMOJI['processed']} {link} -> {resolved_link}"
                     self._queue_task(
                         self._vkapi.edit_msg,
