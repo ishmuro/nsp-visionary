@@ -150,7 +150,6 @@ class VKAPIHandle(object):
                 continue
 
             for update in updates:
-                self._log.debug(f"Got update: {update}")
                 if update[0] == 4 and update[3] == self._bound_peer_id:
                     yield update[6]  # Yield message text
 
