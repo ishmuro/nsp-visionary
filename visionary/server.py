@@ -8,7 +8,7 @@ from aiovk.exceptions import VkCaptchaNeeded
 from visionary.vkapi import VKAPIHandle
 from visionary.webclient import WebClient
 from visionary.util import find_link_br, hash_link
-from visionary.config import EMOJI
+from visionary.config import EMOJI, WEBCLIENT_TIMEOUT
 
 
 class VisionServer(object):
@@ -18,13 +18,20 @@ class VisionServer(object):
     def __init__(self, workers: int, token: str, chat_name: str, binary_path: str, driver_path: str, image_path: str):
         self._workers = workers
 
+        # Fix trailing slash if not present
         if image_path[:-1] != '/':
             image_path += '/'
 
         self._log = Logger('VServer')
         self._aioloop = asyncio.get_event_loop()
         self._vkapi = VKAPIHandle(self._aioloop, token, chatname=chat_name)
-        self._web = WebClient(binary_path=binary_path, driver_path=driver_path, image_path=image_path)
+        self._web = WebClient(
+            binary_path=binary_path,
+            driver_path=driver_path,
+            image_path=image_path,
+            timeout=WEBCLIENT_TIMEOUT
+        )
+        self._webclient_lock = asyncio.Lock()
 
     async def _execute_blocking(self, func, *args, **kwargs) -> Coroutine:
         """
@@ -69,7 +76,9 @@ class VisionServer(object):
                     self._vkapi.send_msg,
                     text=f"{EMOJI['process']} {link}")
 
-                resolved_link = await self._execute_blocking(self._web.resolve, link)
+                with (await self._webclient_lock):
+                    resolved_link = await self._execute_blocking(self._web.resolve, link)
+
                 resolved_hash = hash_link(resolved_link)
                 self._log.info(f"{link} -> {resolved_link} ({resolved_hash})")
 
@@ -101,7 +110,9 @@ class VisionServer(object):
                         msg_id=message_id,
                         text=message_text)
 
-                screen_path = await self._execute_blocking(self._web.snap, resolved_link)
+                with (await self._webclient_lock):
+                    screen_path = await self._execute_blocking(self._web.snap, resolved_link)
+
                 if screen_path:
                     photo_id = await self._vkapi.upload_photo(screen_path)
                     self._queue_task(
