@@ -15,8 +15,8 @@ Options:
     -h --help                           Show this screen
     --version                           Show version
     -i --image-dir <image_dir>          Directory to store images to [default: img]
-    -b --binary-path <binary_path>      Path to the Chrome binary [default: /usr/bin/google-chrome]
-    -d --driver-path <driver_path>      Path to Chrome Selenium webdriver [default: /usr/bin/chromedriver-dev]
+    -b --binary-path <binary_path>      Path to the Chrome binary [default: /usr/bin/google-chrome-stable]
+    -d --driver-path <driver_path>      Path to Chrome Selenium webdriver [default: /usr/bin/chromedriver]
     -c --chat-name <chat_name>          Chat name to listen to [default: TEST_DLG]
     -w --workers <worker_tasks>         Concurrent worker tasks to run [default: 5]
 
@@ -29,7 +29,7 @@ from pprint import pprint as pp
 from logbook import StreamHandler
 
 if __name__ == '__main__':
-    args = docopt(__doc__, version='0.8')
+    args = docopt(__doc__, version='0.9')
     pp(args)
 
     if args['start']:
