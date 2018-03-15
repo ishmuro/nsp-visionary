@@ -2,6 +2,7 @@ LOGGER_FORMAT = '%(asctime)s %(message)s'
 RAND_MAX = 100000
 VKAPI_CHAT_OFFSET = 2000000000
 WEBCLIENT_TIMEOUT = 10
+WEBCLIENT_ALLOWED_FILES = ('.html', '.php')
 
 EMOJI = {
     'blue_bubble':  '\U0001F535',

@@ -2,11 +2,13 @@ import asyncio
 import functools
 from logbook import Logger
 from typing import Coroutine
+from furl.furl import furl
 
 from aiovk.exceptions import VkCaptchaNeeded
 
 from visionary.vkapi import VKAPIHandle
 from visionary.webclient import WebClient
+from visionary.webclient_puppet import PuppetClient
 from visionary.util import find_link_br, hash_link
 from visionary.config import EMOJI, WEBCLIENT_TIMEOUT
 
@@ -15,7 +17,16 @@ class VisionServer(object):
     _server_task_pool = []
     _aux_tasks = []
 
-    def __init__(self, workers: int, token: str, chat_name: str, binary_path: str, driver_path: str, image_path: str):
+    def __init__(
+            self,
+            workers: int,
+            token: str,
+            chat_name: str,
+            binary_path: str,
+            driver_path: str,
+            image_path: str,
+            reply_chat_name: str=None
+    ):
         self._workers = workers
 
         # Fix trailing slash if not present
@@ -24,13 +35,14 @@ class VisionServer(object):
 
         self._log = Logger('VServer')
         self._aioloop = asyncio.get_event_loop()
-        self._vkapi = VKAPIHandle(self._aioloop, token, chatname=chat_name)
-        self._web = WebClient(
-            binary_path=binary_path,
-            driver_path=driver_path,
-            image_path=image_path,
-            timeout=WEBCLIENT_TIMEOUT
+        self._vkapi = VKAPIHandle(
+            self._aioloop,
+            token,
+            listen_chat_name=chat_name,
+            reply_chat_name=reply_chat_name or None
         )
+        self._web = PuppetClient(image_path, workers)
+
         self._webclient_lock = asyncio.Lock()
 
     async def _execute_blocking(self, func, *args, **kwargs) -> Coroutine:
@@ -76,11 +88,7 @@ class VisionServer(object):
                     self._vkapi.send_msg,
                     text=f"{EMOJI['process']} {link}")
 
-                with (await self._webclient_lock):
-                    resolved_link = await self._execute_blocking(self._web.resolve, link)
-
-                resolved_hash = hash_link(resolved_link)
-                self._log.info(f"{link} -> {resolved_link} ({resolved_hash})")
+                resolved = await self._web.process_link(link)
 
                 try:
                     message_id = await message_task
@@ -88,7 +96,7 @@ class VisionServer(object):
                     self._log.error('Captcha kicked in, unable to proceed')
                     raise RuntimeError('Captcha')
 
-                if resolved_link is None:
+                if resolved is None:
                     self._log.warn('Skipping link')
                     self._queue_task(
                         self._vkapi.edit_msg,
@@ -97,24 +105,25 @@ class VisionServer(object):
                     )
                     continue
 
-                if hash_link(link) != resolved_hash:
-                    message_text = f"{EMOJI['processed']} {link} -> {resolved_link}"
+                link = furl(link)
+
+                if link.host != resolved.location.host:
+                    message_text = f"{EMOJI['processed']} {resolved.redirect_path}"
                     self._queue_task(
                         self._vkapi.edit_msg,
                         msg_id=message_id,
-                        text=message_text)
+                        text=message_text,
+                    )
                 else:
                     message_text = f"{EMOJI['processed']} {link}"
                     self._queue_task(
                         self._vkapi.edit_msg,
                         msg_id=message_id,
-                        text=message_text)
+                        text=message_text,
+                    )
 
-                with (await self._webclient_lock):
-                    screen_path = await self._execute_blocking(self._web.snap, resolved_link)
-
-                if screen_path:
-                    photo_id = await self._vkapi.upload_photo(screen_path)
+                if resolved.snapshot:
+                    photo_id = await self._vkapi.upload_photo(resolved.snapshot)
                     self._queue_task(
                         self._vkapi.edit_msg,
                         msg_id=message_id,
@@ -128,6 +137,7 @@ class VisionServer(object):
 
     def start(self):
         self._aioloop.run_until_complete(self._vkapi.register())    # API init subroutine
+        self._aioloop.run_until_complete(self._web.start())
 
         try:
             self._server_task_pool = [asyncio.ensure_future(self._process()) for _ in range(self._workers)]
@@ -155,7 +165,7 @@ class VisionServer(object):
 
             self._log.info('Stopping auxiliary services')
             self._vkapi.stop()
-            self._web.stop()
+            self._aioloop.run_until_complete(self._web.stop())
             self._aioloop.close()
 
             self._log.warn('Server has been shut down!')

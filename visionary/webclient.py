@@ -1,4 +1,5 @@
 import selenium.webdriver.chrome.service as service
+import threading
 
 from typing import Optional
 from logbook import Logger
@@ -22,7 +23,7 @@ class WebClient(object):
         self.timeout = timeout
 
         self._wd_options = Options()
-        self._wd_options.add_argument('--headless')
+        # self._wd_options.set_headless(True)
         self._wd_options.add_argument('--window-size=1280x720')
         self._wd_options.binary_location = binary_path
 
@@ -30,11 +31,13 @@ class WebClient(object):
 
         # This could fail and throw RemoteDriverServerException (probably)
         self._wd_service.start()
+        self._log.debug(f"Started Webdriver service: {self._wd_service}")
         # This can fail and throw WebDriverException (confirmed)
         self._wd = webdriver.Remote(
             self._wd_service.service_url,
             desired_capabilities=self._wd_options.to_capabilities()
         )
+        self._log.debug(f"Started chrome instance: {self._wd}")
         self._wd.set_page_load_timeout(self.timeout)
         self._wd.set_script_timeout(self.timeout)
 
@@ -49,6 +52,8 @@ class WebClient(object):
         """
         url_hash = hash_link(url)
         path = f"{self.image_path}{url_hash}.png"
+
+        self._log.debug(f"Snap start. Service {self._wd_service}, client {self._wd}. current_url {self._wd.current_url}")
 
         if self._wd.current_url != url:
             link = self.resolve(url)
@@ -68,7 +73,7 @@ class WebClient(object):
         Returns:
             Final destination URI or None if failed
         """
-        self._log.debug(f"Resolving {url}...")
+        self._log.debug(f"Resolving {url}. Service {self._wd_service}, client {self._wd}, current url {self._wd.current_url}")
 
         try:
             self._wd.get(url)

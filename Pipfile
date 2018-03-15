@@ -8,9 +8,12 @@ name = "pypi"
 [packages]
 
 aiohttp = "==2.3.10"
-aiovk = *
-docopt = *
-selenium = *
+aiovk = "*"
+docopt = "*"
+selenium = "*"
+pyppeteer = "*"
+tenacity = "*"
+furl = "*"
 
 
 [dev-packages]

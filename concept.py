@@ -29,7 +29,7 @@ CHROME_PATH = BASE_PATH + '/chromedriver'
 CHROME_OPT = Options()
 CHROME_OPT.add_argument('--headless')
 CHROME_OPT.add_argument('--window-size=1280x720')
-CHROME_OPT.binary_location = '/usr/bin/google-chrome-unstable'  # TODO: This should be a console argument
+CHROME_OPT.binary_location = '/usr/bin/google-chrome-unstable'
 
 CACHE_SIZE = 5000
 KNOWN_UID = deque(maxlen=CACHE_SIZE)

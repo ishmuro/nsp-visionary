@@ -10,16 +10,17 @@ from visionary.config import RAND_MAX, VKAPI_CHAT_OFFSET
 
 
 class VKAPIHandle(object):
-    _bound_peer_id = None
+    _listen_peer_id = None
     _upload_uri = None
     _longpoll_cursor = 0
 
-    def __init__(self, loop: AbstractEventLoop, token: str, chatname: str):
+    def __init__(self, loop: AbstractEventLoop, token: str, listen_chat_name: str, reply_chat_name: str=None):
         self._aiohttp_client = aiohttp.ClientSession(loop=loop)
         self._vk_session = aiovk.TokenSession(access_token=token)
         self._api = aiovk.API(self._vk_session)
         self._log = Logger('VKAPI')
-        self._bound_chatname = chatname
+        self._listen_chatname = listen_chat_name
+        self._reply_chatname = reply_chat_name or None
         self._longpoll = aiovk.LongPoll(self._api, mode=2)
         random.seed()
 
@@ -34,19 +35,31 @@ class VKAPIHandle(object):
 
     async def _get_chat_id(self) -> bool:
         """
-        Internal method to get peer ID of the bound chat name
+        Internal method to get peer ID of the bound chat names
         Returns:
-            `True` if the chat is found. `False` elsewhere.
+            `True` if the chats are found. `False` elsewhere.
         """
         all_chats = await self._api.messages.getDialogs()
         all_chats = all_chats['items']
-        self._log.debug(f"Got chat data from VKAPI: {all_chats}")
+        self._log.debug(f"\n\nGot chat data from VKAPI: {all_chats}\n\n")
 
-        self._log.debug(f"Searching for '{self._bound_chatname}'...")
+        self._log.debug(f"Searching for '{self._listen_chatname}'...")
         for chat in all_chats:
-            if chat['message']['title'] == self._bound_chatname:
-                self._bound_peer_id = VKAPI_CHAT_OFFSET + chat['message']['chat_id']
-                self._log.info(f"Messaging bound to peer ID {self._bound_peer_id}")
+            if chat['message']['title'] == self._listen_chatname:
+                self._listen_peer_id = VKAPI_CHAT_OFFSET + chat['message']['chat_id']
+                self._log.info(f"Listening to peer ID {self._listen_peer_id}")
+
+            if chat['message']['title'] == self._reply_chatname:
+                self._reply_peer_id = VKAPI_CHAT_OFFSET + chat['message']['chat_id']
+                self._log.info(f"Replying to peer ID {self._reply_peer_id} ({self._reply_chatname})")
+
+        if self._listen_peer_id is not None:
+            if self._reply_chatname is not None:
+                if self._reply_peer_id is not None:
+                    return True
+            else:
+                self._log.info('Replying to the same peer ID')
+                self._reply_peer_id = self._listen_peer_id
                 return True
 
         return False
@@ -59,7 +72,7 @@ class VKAPIHandle(object):
             https://vk.com/dev/upload_files
             https://vk.com/dev/photos.getMessagesUploadServer
         """
-        resp = await self._api.photos.getMessagesUploadServer(peer_id=self._bound_peer_id)
+        resp = await self._api.photos.getMessagesUploadServer(peer_id=self._listen_peer_id)
         self._upload_uri = resp['upload_url']
         self._log.debug(f"Photo upload URI: {self._upload_uri}")
 
@@ -107,7 +120,7 @@ class VKAPIHandle(object):
         random_id = random.randint(0, RAND_MAX)
         sent_msg_id = await self._api.messages.send(
             random_id=random_id,
-            peer_id=self._bound_peer_id,
+            peer_id=self._reply_peer_id,
             message=text,
             attachment=attachment or ''
         )
@@ -125,7 +138,7 @@ class VKAPIHandle(object):
             1 if the edit was successful. 0 otherwise.
         """
         return await self._api.messages.edit(
-            peer_id=self._bound_peer_id,
+            peer_id=self._reply_peer_id,
             message_id=msg_id,
             message=text,
             attachment=attachment or ''
@@ -150,7 +163,7 @@ class VKAPIHandle(object):
                 continue
 
             for update in updates:
-                if update[0] == 4 and update[3] == self._bound_peer_id:
+                if update[0] == 4 and update[3] == self._listen_peer_id:
                     yield update[6]  # Yield message text
 
     def stop(self):
