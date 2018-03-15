@@ -65,11 +65,11 @@ class PuppetClient(object):
 
     @tenacity.retry(stop=tenacity.stop_after_attempt(3), retry=tenacity.retry_if_exception_type(RuntimeError))
     async def _navigate(self, tab: Page, link: furl):
-        self._log.debug(f"Navigating to {link.url}...")
+        self._log.debug(f"Navigating to {link.tostr()}...")
         try:
-            await tab.goto(link.url)
+            await tab.goto(link.tostr())
         except Exception as e:
-            self._log.error(f"Failed to navigate tab to {link.url}: {e}")
+            self._log.error(f"Failed to navigate tab to {link.tostr()}: {e}")
             raise RuntimeError
         else:
             self._fails = 0
@@ -134,7 +134,7 @@ class PuppetClient(object):
 
         redirect_str = ''
         for item in redirect_queue:
-            if item in endpoint.url:
+            if item in endpoint.tostr():
                 redirect_str += item
                 break
             else:
