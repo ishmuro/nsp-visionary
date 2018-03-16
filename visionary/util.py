@@ -30,8 +30,6 @@ def find_link_br(text: str) -> Optional[str]:
     """
     match = re.search('^https?://[^<]+<br>', text)
     if match:
-        if match.group(0)[:-4].endswith('%20'):
-            return match.group(0)[:-7]
-        return match.group(0)[:-4]
+        return match.group(0)[:-4].strip()
     else:
         return None
