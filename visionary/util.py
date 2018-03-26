@@ -1,3 +1,4 @@
+import lxml.html as html
 import uuid
 import re
 
@@ -33,3 +34,22 @@ def find_link_br(text: str) -> Optional[str]:
         return match.group(0)[:-4].strip()
     else:
         return None
+
+
+def parse_http_refresh(html_string: str) -> Optional[str]:
+    link: Optional[str] = None
+    page = html.document_fromstring(html_string)
+    meta_tags = page.head.findall('meta')
+    for tag in meta_tags:
+        if tag.get('http-equiv') == 'refresh':
+            link = tag.get('content')
+
+    if link is None:
+        return None
+
+    if '\"' in link:
+        delimiter = '\"'
+    else:
+        delimiter = '\''
+
+    return link.split(delimiter)[1].strip()
