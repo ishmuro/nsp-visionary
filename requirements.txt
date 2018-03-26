@@ -1,6 +1,0 @@
-aiohttp==2.3.10
-aiovk
-docopt
-halo
-selenium
-logbook
