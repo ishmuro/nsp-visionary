@@ -7,10 +7,9 @@ from furl.furl import furl
 from aiovk.exceptions import VkCaptchaNeeded
 
 from visionary.vkapi import VKAPIHandle
-from visionary.webclient import WebClient
 from visionary.webclient_puppet import PuppetClient
-from visionary.util import find_link_br, hash_link
-from visionary.config import EMOJI, WEBCLIENT_TIMEOUT
+from visionary.util import find_link_br
+from visionary.config import EMOJI
 
 
 class VisionServer(object):
@@ -22,8 +21,6 @@ class VisionServer(object):
             workers: int,
             token: str,
             chat_name: str,
-            binary_path: str,
-            driver_path: str,
             image_path: str,
             reply_chat_name: str=None
     ):
@@ -136,7 +133,8 @@ class VisionServer(object):
             return
 
     def start(self):
-        self._aioloop.run_until_complete(self._vkapi.register())    # API init subroutine
+        # Initialize components first
+        self._aioloop.run_until_complete(self._vkapi.register())
         self._aioloop.run_until_complete(self._web.start())
 
         try:

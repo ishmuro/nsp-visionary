@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 """Visionary server for generating inline previews
 Usage:
-    visionary.py start [-i <image_dir>]
-                       [-b <binary_path>]
-                       [-d <driver_path>]
+    visionary.py start [-i <image_dir>]s
                        [-w <worker_tasks>]
                        [-l <chat_name>]
                        [-r <reply_chat>]
@@ -16,8 +14,6 @@ Options:
     -h --help                           Show this screen
     --version                           Show version
     -i --image-dir <image_dir>          Directory to store images to [default: img]
-    -b --binary-path <binary_path>      Path to the Chrome binary [default: /usr/bin/google-chrome-stable]
-    -d --driver-path <driver_path>      Path to Chrome Selenium webdriver [default: /usr/bin/chromedriver]
     -w --workers <worker_tasks>         Concurrent worker tasks to run [default: 5]
     -l --listen-to <chat_name>          Chat name to listen to [default: TEST_DLG]
     -r --reply-to <reply_chat>          Chat name to reply to.

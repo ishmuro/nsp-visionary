@@ -11,11 +11,11 @@ from typing import NamedTuple, Optional
 from furl.furl import furl
 from logbook import Logger, StreamHandler
 from pyppeteer.page import Response, Page
-from pyppeteer.errors import NetworkError
 from functools import partial
 
 from visionary.config import WEBCLIENT_ALLOWED_FILES
 from visionary.util import hash_link, parse_http_refresh
+
 
 ResolvedLink = NamedTuple('ResolvedLink', [
     ('start_location', furl),
@@ -81,29 +81,24 @@ class PuppetClient(object):
     async def _handle_response(self, resp: Response, queue: deque):
         location = furl(resp.headers.get('location') or '')
         domain = location.host or ''
-        redirect = None
 
         if domain != '' and queue.count(domain) == 0:
             queue.append(domain)
             self._log.debug(f"Redirect queue as of now: {queue}")
-        # try:
-        #     body = await resp.text()
-        # except NetworkError:
-        #     self._log.debug(f"No body present at {location.url}")
-        # else:
-        #     redirect = furl(parse_http_refresh(body))
-        # if redirect is not None:
-        #     self._force_redirect = (redirect, location)
 
-    async def process_link(self, link: str):
+    async def process_link(self, link: str) -> Optional[ResolvedLink]:
         start_time = time.monotonic()
         link = furl(link)
         redirect_queue = deque()
 
+        # Check if this is a file link
         if link.path.isfile:
+
+            # If so, we are interested only in HTML and PHP files.
             try:
                 last_dot_pos = link.pathstr.rindex('.')
             except ValueError:
+                # It's just a link, albeit missing a trailing slash
                 pass
             else:
                 extension = re.sub('[^A-Za-z.]+', '', link.pathstr[last_dot_pos:])
@@ -117,6 +112,8 @@ class PuppetClient(object):
                     )
 
         tab = await self._get_tab()
+
+        # Register callback fired on incoming response
         tab.on(event='response', f=partial(self._handle_response, queue=redirect_queue))
         try:
             await self._navigate(tab, link)
@@ -131,6 +128,7 @@ class PuppetClient(object):
         })
         await tab.close()
 
+        # We do need full enter and exit links for clarity. Other hops may display as domains only.
         if link.host in redirect_queue:
             redirect_queue.popleft()
         redirect_queue.appendleft(link.host + link.pathstr)
@@ -139,6 +137,7 @@ class PuppetClient(object):
             redirect_queue.pop()
         redirect_queue.append(endpoint.host + endpoint.pathstr)
 
+        # Compose a string out of redirect queue
         redirect_str = ''
         for item in redirect_queue:
             if item in endpoint.url:
