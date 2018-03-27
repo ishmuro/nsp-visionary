@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Visionary server for generating inline previews
 Usage:
-    visionary.py start [-i <image_dir>]s
+    visionary.py start [-i <image_dir>]
                        [-w <worker_tasks>]
                        [-l <chat_name>]
                        [-r <reply_chat>]
@@ -47,8 +47,6 @@ if __name__ == '__main__':
             token=args['<token>'],
             chat_name=args['--listen-to'],
             reply_chat_name=args['--reply-to'],
-            binary_path=args['--binary-path'],
-            driver_path=args['--driver-path'],
             image_path=args['--image-dir'],
             workers=int(args['--workers'])
         )
