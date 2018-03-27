@@ -64,6 +64,7 @@ class PuppetClient(object):
             if referer is not None:
                 await tab.setExtraHTTPHeaders({'referer': referer.url})
 
+            await tab.goto(link.url)
         except Exception as e:
             self._log.error(f"Failed to navigate tab to {link.url}: {e}")
             raise RuntimeError
@@ -125,6 +126,7 @@ class PuppetClient(object):
             self._log.warn(f"Failed {self._fails} time in a row.")
             return None
         endpoint = furl(tab.url)
+
         snapshot = self.image_path + hash_link(endpoint.host+endpoint.pathstr) + '.png'
         await tab.screenshot({
             'path': snapshot
