@@ -3,6 +3,7 @@ import aiovk
 import aiohttp
 import json
 import random
+import tenacity
 
 from asyncio import AbstractEventLoop
 from logbook import Logger
@@ -183,6 +184,10 @@ class VKAPIHandle(object):
             for update in updates:
                 if update[0] == 4 and update[3] == self._listen_peer_id:
                     yield update[6]  # Yield message text
+
+    @tenacity.retry(wait=tenacity.wait_random_exponential(multiplier=10))
+    async def check_availability(self):
+        self._log.info(f"VK API is currently down for")
 
     def stop(self):
         self._vk_session.close()

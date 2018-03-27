@@ -73,6 +73,8 @@ class PuppetClient(object):
 
         final_url = furl(tab.url)
 
+        # This section is basically a dirty hack, since self-refreshing pages tend to break on requesting
+        # their contents, since the page we are trying to load is already gone.
         try:
             content = await retry_async(tab.content, 1, 3)
         except NetworkError:
@@ -90,9 +92,8 @@ class PuppetClient(object):
             queue.append(domain)
             self._log.debug(f"Redirect queue as of now: {queue}")
 
-    async def process_link(self, link: str) -> Optional[ResolvedLink]:
+    async def process_link(self, link: furl) -> Optional[ResolvedLink]:
         start_time = time.monotonic()
-        link = furl(link)
         redirect_queue = deque()
 
         # Check if this is a file link
@@ -106,10 +107,14 @@ class PuppetClient(object):
                 pass
             else:
                 extension = re.sub('[^A-Za-z.]+', '', link.pathstr[last_dot_pos:])
-                if extension not in WEBCLIENT_ALLOWED_FILES:
+
+                # If the extension gets too long, it's probably some weird link with dots in the slug.
+                # Advert tracking doorways could use those
+
+                if extension not in WEBCLIENT_ALLOWED_FILES and len(extension) < 15:
                     return ResolvedLink(
-                        start_location=link.url,
-                        location=link.url,
+                        start_location=link,
+                        location=link,
                         redirect_path='',
                         snapshot=None,
                         time_taken=-1

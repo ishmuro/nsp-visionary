@@ -40,8 +40,6 @@ class VisionServer(object):
         )
         self._web = PuppetClient(image_path, workers)
 
-        self._webclient_lock = asyncio.Lock()
-
     async def _execute_blocking(self, func, *args, **kwargs) -> Coroutine:
         """
         Execute blocking function in separate thread
@@ -76,14 +74,16 @@ class VisionServer(object):
         """Main server coroutine"""
         try:
             async for message in self._vkapi.wait_for_messages():
-                link = find_link_br(message)
-                if not link:
+                link_string = find_link_br(message)
+                if not link_string:
                     continue  # Nothing to do here
 
-                self._log.info(f"Found link in message: {link}")
+                link = furl(link_string)
+
+                self._log.info(f"Found link in message: {link.url}")
                 message_task = self._queue_task(
                     self._vkapi.send_msg,
-                    text=f"{EMOJI['process']} {link}")
+                    text=f"{EMOJI['process']} {link.url}")
 
                 resolved = await self._web.process_link(link)
 
@@ -98,11 +98,9 @@ class VisionServer(object):
                     self._queue_task(
                         self._vkapi.edit_msg,
                         msg_id=message_id,
-                        text=f"{EMOJI['timeout']} {link}"
+                        text=f"{EMOJI['timeout']} {link.url}"
                     )
                     continue
-
-                link = furl(link)
 
                 if link.host != resolved.location.host:
                     message_text = f"{EMOJI['processed']} {resolved.redirect_path}"
