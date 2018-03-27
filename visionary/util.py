@@ -3,8 +3,27 @@ import lxml.html as html
 import uuid
 import re
 
-from typing import Optional
+from furl.furl import furl
+from enum import Enum
+from typing import Optional, NamedTuple
 from types import FunctionType
+
+
+class ModuleStates(Enum):
+    blocked = 'blocked'
+    stopped = 'stopped'
+    starting = 'starting'
+    ready = 'ready'
+    stopping = 'stopping'
+
+
+ResolvedLink = NamedTuple('ResolvedLink', [
+    ('start_location', furl),
+    ('location', furl),
+    ('redirect_path', str),
+    ('snapshot', Optional[str]),
+    ('time_taken', float)
+])
 
 
 def hash_link(uri: str) -> Optional[str]:

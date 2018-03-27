@@ -1,7 +1,7 @@
 LOGGER_FORMAT = '%(asctime)s %(message)s'
 RAND_MAX = 100000
 VKAPI_CHAT_OFFSET = 2000000000
-WEBCLIENT_TIMEOUT = 10
+WEBCLIENT_TIMEOUT = 20
 WEBCLIENT_ALLOWED_FILES = ('.html', '.php')
 
 EMOJI = {
@@ -13,5 +13,6 @@ EMOJI = {
     'warn':         '\U000026A0',
     'cross':        '\U0000274C',
     'ok':           '\U0001F197',
-    'timeout':      '\U000023F1'
+    'timeout':      '\U0000231B',
+    'package':      '\U0001F4E6'
 }

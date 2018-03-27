@@ -93,6 +93,7 @@ class VisionServer(object):
                     self._log.error('Captcha kicked in, unable to proceed')
                     raise RuntimeError('Captcha')
 
+                # Link could not open
                 if resolved is None:
                     self._log.warn('Skipping link')
                     self._queue_task(
@@ -102,21 +103,33 @@ class VisionServer(object):
                     )
                     continue
 
+                # Link is a file
+                if resolved.time_taken == -1:
+                    self._log.info(f"Treated {link.url} as a file link.")
+                    self._queue_task(
+                        self._vkapi.edit_msg,
+                        msg_id=message_id,
+                        text=f"{EMOJI['package']} {resolved.location}"
+                    )
+                    continue
+
+                # Link has redirects
                 if link.host != resolved.location.host:
-                    message_text = f"{EMOJI['processed']} {resolved.redirect_path}"
+                    message_text = f"{EMOJI['processed']} {resolved.redirect_path} ({resolved.time_taken:.2f} ms)"
                     self._queue_task(
                         self._vkapi.edit_msg,
                         msg_id=message_id,
                         text=message_text,
                     )
                 else:
-                    message_text = f"{EMOJI['processed']} {link}"
+                    message_text = f"{EMOJI['processed']} {link.url} ({resolved.time_taken:.2f} ms)"
                     self._queue_task(
                         self._vkapi.edit_msg,
                         msg_id=message_id,
                         text=message_text,
                     )
 
+                # Could take snapshot
                 if resolved.snapshot:
                     photo_id = await self._vkapi.upload_photo(resolved.snapshot)
                     self._queue_task(
@@ -125,6 +138,8 @@ class VisionServer(object):
                         text=message_text,
                         attachment=photo_id
                     )
+                else:
+                    self._log.warn(f"No snapshot available for {link.url}")
 
         except asyncio.CancelledError:
             self._log.info('Longpoll task cancelled')
@@ -143,6 +158,8 @@ class VisionServer(object):
             self._log.warn('Being shut down by keyboard interrupt or SIGINT')
         except RuntimeError:
             self._log.warn('Being shut down by server error')
+        except Exception as e:
+            self._log.error(f"Execution failed miserably due to an unknown error: {e}")
         finally:
             # Send cancel exception to all server tasks
             for task in self._server_task_pool:
