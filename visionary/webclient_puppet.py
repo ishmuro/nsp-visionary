@@ -3,18 +3,17 @@ import asyncio as aio
 import pyppeteer as pyp
 import time
 import tenacity
-import sys
-import warnings
 
 from collections import deque
 from typing import NamedTuple, Optional
 from furl.furl import furl
-from logbook import Logger, StreamHandler
+from logbook import Logger
 from pyppeteer.page import Response, Page
+from pyppeteer.errors import NetworkError
 from functools import partial
 
 from visionary.config import WEBCLIENT_ALLOWED_FILES
-from visionary.util import hash_link, parse_http_refresh
+from visionary.util import hash_link, parse_http_refresh, retry_async
 
 
 ResolvedLink = NamedTuple('ResolvedLink', [
@@ -65,18 +64,22 @@ class PuppetClient(object):
             if referer is not None:
                 await tab.setExtraHTTPHeaders({'referer': referer.url})
 
-            await tab.goto(link.url)
         except Exception as e:
             self._log.error(f"Failed to navigate tab to {link.url}: {e}")
             raise RuntimeError
         else:
             self._fails = 0
 
-        current_url = furl(tab.url)
-        content = await tab.content()
-        redirect = parse_http_refresh(content)
-        if redirect is not None:
-            self._navigate(tab, furl(redirect), current_url)
+        final_url = furl(tab.url)
+
+        try:
+            content = await retry_async(tab.content, 1, 3)
+        except NetworkError:
+            self._log.error('Failed to fetch body in 3 retries, dropping URL as is (missing redirect possible)')
+        else:
+            redirect = parse_http_refresh(content)
+            if redirect is not None:
+                self._navigate(tab, furl(redirect), final_url)
 
     async def _handle_response(self, resp: Response, queue: deque):
         location = furl(resp.headers.get('location') or '')
@@ -154,23 +157,3 @@ class PuppetClient(object):
             time_taken=time.monotonic()-start_time
         )
 
-
-if __name__ == '__main__':
-
-    link = 'http://rmj9i.voluumtrk.com/0caaf162-99c1-4336-88de-f0197217bcaf?sub1=stats4'
-    StreamHandler(sys.stdout, level='DEBUG', bubble=True).push_application()
-
-    try:
-        loop = aio.get_event_loop()
-    except RuntimeError:
-        loop = aio.new_event_loop()
-
-    loop.set_debug(True)
-    warnings.simplefilter('always', ResourceWarning)
-
-    client = PuppetClient(image_path='img', max_tabs=1)
-    loop.run_until_complete(client.start())
-    loop.run_until_complete(client.process_link(link))
-    loop.run_until_complete(client.stop())
-    loop.stop()
-    loop.close()
