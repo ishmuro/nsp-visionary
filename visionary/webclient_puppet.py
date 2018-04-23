@@ -14,11 +14,11 @@ from functools import partial
 from websockets.exceptions import ConnectionClosed
 
 from visionary.config import WEBCLIENT_ALLOWED_FILES, WEBCLIENT_TIMEOUT
-from visionary.util import hash_link, parse_http_refresh, retry_async, ResolvedLink, ModuleStates
+from visionary.util import hash_link, parse_http_refresh, retry_async, ResolvedLink, ModuleState
 
 
 class PuppetClient(object):
-    _state = ModuleStates.stopped
+    _state = ModuleState.stopped
     _browser = None
     _open_tab_count = 0
     _fails = 0
@@ -30,21 +30,21 @@ class PuppetClient(object):
         self._max_tabs = max_tabs
 
     async def start(self):
-        self._state = ModuleStates.starting
+        self._state = ModuleState.starting
         self._log.debug('Trying to start browser...')
         self._browser = await pyp.launch(options={
             'args': ['--no-sandbox', '--disable-setuid-sandbox']
         })
         self._log.debug('Browser OK.')
-        self._state = ModuleStates.ready
+        self._state = ModuleState.ready
 
     async def stop(self):
-        self._state = ModuleStates.stopping
+        self._state = ModuleState.stopping
         self._log.debug('Stopping web client...')
         await self._browser.close()
         self._browser = None
         self._log.debug('Browser closed.')
-        self._state = ModuleStates.stopped
+        self._state = ModuleState.stopped
 
     async def _restart(self, msg: str):
         self._log.warn(msg)
@@ -53,12 +53,12 @@ class PuppetClient(object):
         await self.start()
 
     async def _wait_for_ready(self):
-        self._log.info('Waiting until service is ready...')
+        self._log.info('Waiting until service is ready...')  # TODO: This triggers every time
 
-        if self._state is ModuleStates.stopped:
+        if self._state is ModuleState.stopped:
             await self.start()
 
-        while self._state is not ModuleStates.ready:
+        while self._state is not ModuleState.ready:
             await aio.sleep(1)
 
     @tenacity.retry(stop=tenacity.stop_after_attempt(3), retry=tenacity.retry_if_exception_type(aio.TimeoutError))

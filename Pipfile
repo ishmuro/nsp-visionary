@@ -15,6 +15,7 @@ pyppeteer = "*"
 tenacity = "*"
 furl = "*"
 lxml = "*"
+aiomonitor = "*"
 
 
 [dev-packages]

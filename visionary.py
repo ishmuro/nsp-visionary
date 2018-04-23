@@ -21,10 +21,12 @@ Options:
 """
 import sys
 import os
+import time
 
 from docopt import docopt
 from pprint import pprint as pp
 from logbook import StreamHandler, RotatingFileHandler
+from logbook.compat import redirect_logging
 
 if __name__ == '__main__':
     args = docopt(__doc__, version='0.9')
@@ -37,17 +39,28 @@ if __name__ == '__main__':
         if not os.path.exists(args['--image-dir']):
             os.makedirs(args['--image-dir'])
 
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
         StreamHandler(sys.stdout, level='DEBUG', bubble=True).push_application()
         RotatingFileHandler('vision.log', backup_count=10, level='DEBUG', bubble=True).push_application()
+        redirect_logging()
 
-        server = VisionServer(
-            token=args['<token>'],
-            chat_name=args['--listen-to'],
-            reply_chat_name=args['--reply-to'],
-            image_path=args['--image-dir'],
-            workers=int(args['--workers'])
-        )
-        server.start()
+        while True:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.set_debug(True)
+
+            try:
+                server = VisionServer(
+                    token=args['<token>'],
+                    chat_name=args['--listen-to'],
+                    reply_chat_name=args['--reply-to'],
+                    image_path=args['--image-dir'],
+                    workers=int(args['--workers'])
+                )
+                server.start()
+            except KeyboardInterrupt:
+                print('Bye!')
+                break
+            except Exception:
+                pass
+            else:
+                break

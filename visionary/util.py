@@ -7,14 +7,22 @@ from furl.furl import furl
 from enum import Enum
 from typing import Optional, NamedTuple
 from types import FunctionType
+from datetime import datetime
 
 
-class ModuleStates(Enum):
+class ModuleState(Enum):
     blocked = 'blocked'
     stopped = 'stopped'
     starting = 'starting'
     ready = 'ready'
     stopping = 'stopping'
+
+
+ModuleLock = NamedTuple('ModuleLock', [
+    ('locked', bool),
+    ('locked_at', datetime),
+    ('last_check', datetime)
+])
 
 
 ResolvedLink = NamedTuple('ResolvedLink', [
