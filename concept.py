@@ -1,3 +1,7 @@
+"""
+* concept.py
+* Older concept version of visionary service kept for reference
+"""
 import asyncio
 import aiovk
 import re

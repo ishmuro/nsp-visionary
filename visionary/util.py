@@ -1,10 +1,12 @@
 import asyncio
+import time
 import lxml.html as html
 import uuid
 import re
 
 from furl.furl import furl
 from enum import Enum
+from math import floor
 from typing import Optional, NamedTuple
 from types import FunctionType
 from datetime import datetime
@@ -36,7 +38,7 @@ ResolvedLink = NamedTuple('ResolvedLink', [
 
 def hash_link(uri: str) -> Optional[str]:
     """
-    Creates a UUID3 hash of a link
+    Create a UUID3 hash of a link
     Args:
         uri: link to be hashed
 
@@ -51,7 +53,7 @@ def hash_link(uri: str) -> Optional[str]:
 
 def find_link_br(text: str) -> Optional[str]:
     """
-    Matches the main link in message (denoted by line break)
+    Match the main link in message (denoted by line break)
     Args:
         text: text to process
 
@@ -94,3 +96,30 @@ async def retry_async(func: FunctionType, wait_for: int, retries: int):
             await asyncio.sleep(wait_for)
         else:
             return result
+
+
+class RateLimiter:
+    slept_for = 0
+
+    def __init__(self, *, max_tokens: int, refresh_time: float = 1.0):
+        self.value = self.max = max_tokens
+        self.refresh_time = refresh_time
+        self.last_updated = time.monotonic()
+
+    def tick(self):
+        ref = (time.monotonic() - self.last_updated) / self.refresh_time
+        refill = floor(ref)
+        self.value = min(self.value + refill, self.max)
+        if self.value < 1:
+            return False
+
+        self.value -= 1
+        self.last_updated = time.monotonic()
+        return True
+
+    async def wait_for_token(self):
+        while not self.tick():
+            await asyncio.sleep(0.1)
+            self.slept_for += 0.1
+
+        return self.slept_for

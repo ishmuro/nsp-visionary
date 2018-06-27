@@ -33,7 +33,8 @@ class PuppetClient(object):
         self._state = ModuleState.starting
         self._log.debug('Trying to start browser...')
         self._browser = await pyp.launch(options={
-            'args': ['--no-sandbox', '--disable-setuid-sandbox']
+            'args': ['--no-sandbox', '--disable-setuid-sandbox'],
+            'handleSIGINT': False
         })
         self._log.debug('Browser OK.')
         self._state = ModuleState.ready
@@ -53,7 +54,8 @@ class PuppetClient(object):
         await self.start()
 
     async def _wait_for_ready(self):
-        self._log.info('Waiting until service is ready...')  # TODO: This triggers every time
+        if self._state is not ModuleState.ready:
+            self._log.info('Waiting until service is ready...')
 
         if self._state is ModuleState.stopped:
             await self.start()
@@ -165,6 +167,7 @@ class PuppetClient(object):
         await tab.screenshot({
             'path': snapshot
         })
+        await aio.sleep(0.1)
         await tab.close()
 
         # We do need full enter and exit links for clarity. Other hops may display as domains only.

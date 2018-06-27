@@ -1,5 +1,6 @@
 import asyncio
 import functools
+import traceback
 from logbook import Logger
 from typing import Coroutine
 from furl.furl import furl
@@ -18,6 +19,7 @@ class VisionServer(object):
 
     def __init__(
             self,
+            loop: asyncio.BaseEventLoop,
             workers: int,
             token: str,
             chat_name: str,
@@ -31,7 +33,7 @@ class VisionServer(object):
             image_path += '/'
 
         self._log = Logger('VServer')
-        self._aioloop = asyncio.get_event_loop()
+        self._aioloop = loop
         self._vkapi = VKAPIHandle(
             self._aioloop,
             token,
@@ -82,7 +84,7 @@ class VisionServer(object):
 
                 self._log.info(f"Found link in message: {link.url}")
                 message_task = self._queue_task(
-                    self._vkapi.send_msg,
+                    self._vkapi.api_send_msg,
                     text=f"{EMOJI['process']} {link.url}")
 
                 resolved = await self._web.process_link(link)
@@ -97,7 +99,7 @@ class VisionServer(object):
                 if resolved is None:
                     self._log.warn('Skipping link')
                     self._queue_task(
-                        self._vkapi.edit_msg,
+                        self._vkapi.api_edit_msg,
                         msg_id=message_id,
                         text=f"{EMOJI['timeout']} {link.url}"
                     )
@@ -107,7 +109,7 @@ class VisionServer(object):
                 if resolved.time_taken == -1:
                     self._log.info(f"Treated {link.url} as a file link.")
                     self._queue_task(
-                        self._vkapi.edit_msg,
+                        self._vkapi.api_edit_msg,
                         msg_id=message_id,
                         text=f"{EMOJI['package']} {resolved.location}"
                     )
@@ -115,25 +117,25 @@ class VisionServer(object):
 
                 # Link has redirects
                 if link.host != resolved.location.host:
-                    message_text = f"{EMOJI['processed']} {resolved.redirect_path} ({resolved.time_taken:.2f} ms)"
+                    message_text = f"{EMOJI['processed']} {resolved.redirect_path} ({resolved.time_taken:.2f}s)"
                     self._queue_task(
-                        self._vkapi.edit_msg,
+                        self._vkapi.api_edit_msg,
                         msg_id=message_id,
                         text=message_text,
                     )
                 else:
-                    message_text = f"{EMOJI['processed']} {link.url} ({resolved.time_taken:.2f} ms)"
+                    message_text = f"{EMOJI['processed']} {link.url} ({resolved.time_taken:.2f}s)"
                     self._queue_task(
-                        self._vkapi.edit_msg,
+                        self._vkapi.api_edit_msg,
                         msg_id=message_id,
                         text=message_text,
                     )
 
                 # Could take snapshot
                 if resolved.snapshot:
-                    photo_id = await self._vkapi.upload_photo(resolved.snapshot)
+                    photo_id = await self._vkapi.api_upload_photo(resolved.snapshot)
                     self._queue_task(
-                        self._vkapi.edit_msg,
+                        self._vkapi.api_edit_msg,
                         msg_id=message_id,
                         text=message_text,
                         attachment=photo_id
@@ -151,19 +153,23 @@ class VisionServer(object):
         self._aioloop.run_until_complete(self._web.start())
 
         try:
-            self._server_task_pool = [asyncio.ensure_future(self._process()) for _ in range(self._workers)]
-            self._aioloop.run_until_complete(asyncio.gather(*self._server_task_pool))
+            self._server_task_pool = [asyncio.ensure_future(self._process(), loop=self._aioloop) for _ in range(self._workers)]
+            pool = asyncio.gather(*self._server_task_pool)
+            self._aioloop.run_until_complete(pool)
 
         except KeyboardInterrupt:
             self._log.warn('Being shut down by keyboard interrupt or SIGINT')
-        except RuntimeError:
-            self._log.warn('Being shut down by server error')
+        except RuntimeError as e:
+            self._log.warn(f"Being shut down by server error: {e}")
+            self._log.warn(traceback.format_exc())
         except Exception as e:
             self._log.error(f"Execution failed miserably due to an unknown error: {e}")
+            self._log.error(traceback.format_exc())
         finally:
             # Send cancel exception to all server tasks
-            for task in self._server_task_pool:
-                task.cancel()
+            # for task in self._server_task_pool:
+            #     task.cancel()
+            pool.cancel()
 
             # Collect pending coroutines and wait for them to finish
             pending_tasks = [task for task in self._aux_tasks if not task.done()]
@@ -174,10 +180,10 @@ class VisionServer(object):
                 self._log.info('Pending tasks finished')
 
             # Wait for server tasks to wrap up
-            self._aioloop.run_until_complete(asyncio.gather(*self._server_task_pool))
+            self._aioloop.run_until_complete(pool)
 
             self._log.info('Stopping auxiliary services')
-            self._vkapi.stop()
+            self._aioloop.run_until_complete(self._vkapi.stop())
             self._aioloop.run_until_complete(self._web.stop())
             self._aioloop.close()
 

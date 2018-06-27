@@ -1,9 +1,22 @@
-LOGGER_FORMAT = '%(asctime)s %(message)s'
+# Maximum random number for identifying messages
 RAND_MAX = 100000
+
+# VK API peer_id offset for chats. Reference: https://vk.com/dev/messages.send
 VKAPI_CHAT_OFFSET = 2000000000
+
+# Maximum VK API queries to be sent in a time unit
+VKAPI_MAX_RATE = 3
+
+# Time unit for the VK API rate limiter (in seconds)
+VKAPI_RATE_PER = 1
+
+# Webclient page load timeout in seconds
 WEBCLIENT_TIMEOUT = 20
+
+# File extensions to be treated as a web page by the webclient
 WEBCLIENT_ALLOWED_FILES = ('.html', '.php')
 
+# Emoji list for use in messages
 EMOJI = {
     'blue_bubble':  '\U0001F535',
     'red_bubble':   '\U0001F534',

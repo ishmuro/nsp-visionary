@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Visionary server for generating inline previews
 Usage:
-    visionary.py start [-i <image_dir>]
+    visionary.py start [-v] [-i <image_dir>]
                        [-w <worker_tasks>]
                        [-l <chat_name>]
                        [-r <reply_chat>]
@@ -13,6 +13,7 @@ Arguments:
 Options:
     -h --help                           Show this screen
     --version                           Show version
+    -v --verbose                        Verbose output, useful for debugging
     -i --image-dir <image_dir>          Directory to store images to [default: img]
     -w --workers <worker_tasks>         Concurrent worker tasks to run [default: 5]
     -l --listen-to <chat_name>          Chat name to listen to [default: TEST_DLG]
@@ -21,7 +22,6 @@ Options:
 """
 import sys
 import os
-import time
 
 from docopt import docopt
 from pprint import pprint as pp
@@ -41,26 +41,22 @@ if __name__ == '__main__':
 
         StreamHandler(sys.stdout, level='DEBUG', bubble=True).push_application()
         RotatingFileHandler('vision.log', backup_count=10, level='DEBUG', bubble=True).push_application()
-        redirect_logging()
 
-        while True:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            loop.set_debug(True)
+        new_loop = asyncio.new_event_loop()
 
-            try:
-                server = VisionServer(
-                    token=args['<token>'],
-                    chat_name=args['--listen-to'],
-                    reply_chat_name=args['--reply-to'],
-                    image_path=args['--image-dir'],
-                    workers=int(args['--workers'])
-                )
-                server.start()
-            except KeyboardInterrupt:
-                print('Bye!')
-                break
-            except Exception:
-                pass
-            else:
-                break
+        if args['--verbose']:
+            redirect_logging()
+            new_loop.set_debug(True)
+
+        server = VisionServer(
+            loop=new_loop,
+            token=args['<token>'],
+            chat_name=args['--listen-to'],
+            reply_chat_name=args['--reply-to'],
+            image_path=args['--image-dir'],
+            workers=int(args['--workers'])
+        )
+
+        server.start()
+        # NOTICE: There are problems with graceful Chrome shutdown.
+        # Reference: https://github.com/miyakogi/pyppeteer/issues/24
