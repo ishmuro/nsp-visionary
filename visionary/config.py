@@ -1,3 +1,6 @@
+# Redis server address
+REDIS_URI = 'redis://localhost'
+
 # Maximum random number for identifying messages
 RAND_MAX = 100000
 

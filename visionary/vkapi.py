@@ -183,7 +183,7 @@ class VKAPIHandle(object):
             New message text
         """
         while True:
-            await aio.sleep(0)
+            await self._rate()
             new_data = await self._longpoll.wait()
             if new_data['ts'] <= self._longpoll_cursor:
                 continue

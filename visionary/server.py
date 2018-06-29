@@ -1,4 +1,5 @@
 import asyncio
+import aioredis
 import functools
 import traceback
 from logbook import Logger
@@ -10,12 +11,13 @@ from aiovk.exceptions import VkCaptchaNeeded
 from visionary.vkapi import VKAPIHandle
 from visionary.webclient_puppet import PuppetClient
 from visionary.util import find_link_br
-from visionary.config import EMOJI
+from visionary.config import EMOJI, REDIS_URI
 
 
 class VisionServer(object):
     _server_task_pool = []
     _aux_tasks = []
+    _redis = None
 
     def __init__(
             self,
@@ -143,6 +145,8 @@ class VisionServer(object):
                 else:
                     self._log.warn(f"No snapshot available for {link.url}")
 
+                self._redis.execute('zadd')
+
         except asyncio.CancelledError:
             self._log.info('Longpoll task cancelled')
             return
@@ -151,6 +155,7 @@ class VisionServer(object):
         # Initialize components first
         self._aioloop.run_until_complete(self._vkapi.register())
         self._aioloop.run_until_complete(self._web.start())
+        self._redis = self._aioloop.run_until_complete(aioredis.create_connection(REDIS_URI, loop=self._aioloop))
 
         try:
             self._server_task_pool = [asyncio.ensure_future(self._process(), loop=self._aioloop) for _ in range(self._workers)]

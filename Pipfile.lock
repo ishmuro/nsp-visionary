@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "1e575e92fa502c30d97cea63f9f951fe2113ecb70d0fe56a8a99ee25025aa60a"
+            "sha256": "90a61917208cf14f9f7f8f6c31a75e49ec5d1807bcf4f16b28f61552f13da483"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -57,6 +57,14 @@
             "index": "pypi",
             "version": "==0.3.0"
         },
+        "aioredis": {
+            "hashes": [
+                "sha256:9ffa0f9ea4076e5caedf55f095ea758f5137c7d1cd06cd9916081f4320fdaa4d",
+                "sha256:d3adfc3295a91a97cab472751e26ff85949566a131cebb27a778e49aa0638c1a"
+            ],
+            "index": "pypi",
+            "version": "==1.1.0"
+        },
         "aiovk": {
             "hashes": [
                 "sha256:340885e07feefde79149bbe4788111a52505d607f7d39375e491bd27d54ee2dd"
@@ -91,6 +99,12 @@
             ],
             "index": "pypi",
             "version": "==1.1"
+        },
+        "hiredis": {
+            "hashes": [
+                "sha256:ca958e13128e49674aa4a96f02746f5de5973f39b57297b84d59fd44d314d5b5"
+            ],
+            "version": "==0.2.0"
         },
         "idna": {
             "hashes": [
